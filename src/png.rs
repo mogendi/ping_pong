@@ -1,8 +1,8 @@
 use crate::chunk::Chunk;
 use std::convert::TryFrom;
 use std::fmt::{Display, Formatter};
-use std::path::Path;
 use std::fs;
+use std::path::Path;
 use std::str::from_utf8;
 
 #[derive(Debug)]
@@ -15,7 +15,7 @@ impl Png {
     pub const STANDARD_HEADER: [u8; 8] = [137, 80, 78, 71, 13, 10, 26, 10];
 
     pub fn new_empty() -> Png {
-        Png{
+        Png {
             header: Self::STANDARD_HEADER,
             chunks: Vec::new(),
         }
@@ -76,7 +76,7 @@ impl Png {
         }
         None
     }
-    fn as_bytes(&self) -> Vec<u8> {
+    pub fn as_bytes(&self) -> Vec<u8> {
         let mut png_vec: Vec<u8> = Vec::new();
         png_vec.extend(self.header.iter());
         for chunk in self.chunks().iter() {
@@ -94,25 +94,23 @@ impl TryFrom<&[u8]> for Png {
         let mut png = Png::new_empty();
         // check if the source is a PNG file first
         if source[0..8] != Self::STANDARD_HEADER {
-            return Err("Invalid PNG file format")
+            return Err("Invalid PNG file format");
         }
         let mut cursor = 8;
         let source_len = source.len();
         for _ in cursor..source_len {
-            let len = u32::from_be_bytes(source[cursor..cursor+4].try_into().unwrap());
-            let type_ = from_utf8(&source[cursor+4..cursor+8]).unwrap();
+            let len = u32::from_be_bytes(source[cursor..cursor + 4].try_into().unwrap());
+            let type_ = from_utf8(&source[cursor + 4..cursor + 8]).unwrap();
 
             match Chunk::try_from(&source[cursor..len as usize + cursor + 12]) {
                 Ok(chunk) => {
                     cursor = len as usize + cursor + 12;
                     png.append_chunk(chunk);
                     if type_ == "IEND" || cursor == source_len {
-                        return Ok(png)
+                        return Ok(png);
                     }
                 }
-                Err(_) => {
-                    return Err("PNG decode failed.")
-                }
+                Err(msg) => return Err(msg),
             }
         }
         Ok(png)

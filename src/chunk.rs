@@ -1,7 +1,7 @@
-use crate::chunk_type::ChunkType;
+use crate::chunk_type::{self, ChunkType};
 use std::convert::TryFrom;
 use std::fmt::{Debug, Display, Formatter};
-use std::str::from_utf8;
+use std::str::{FromStr, from_utf8};
 use std::string::{FromUtf8Error, String};
 
 #[derive(Clone)]
@@ -27,6 +27,32 @@ impl Chunk {
             chunk_type: chunk_type,
             chunk_data: data,
             chunk_crc: crc,
+        }
+    }
+
+    pub fn new_no_state(chunk_type: String, data: Vec<u8>) -> Result<Chunk, &'static str> { 
+        match ChunkType::from_str(&chunk_type[..]) {
+            Ok(chunk_type) => {
+                let crc = crc32fast::hash(
+                    &chunk_type
+                        .chunk_type
+                        .iter()
+                        .chain(data.iter())
+                        .copied()
+                        .collect::<Vec<u8>>()[..],
+                );
+                Ok (
+                    Chunk {
+                        chunk_length: data.len() as u32,
+                        chunk_type: chunk_type,
+                        chunk_data: data,
+                        chunk_crc: crc
+                    }
+                )
+            }
+            Err(msg) => {
+                Err(msg)
+            }
         }
     }
     pub fn length(&self) -> u32 {
@@ -73,7 +99,7 @@ impl TryFrom<&[u8]> for Chunk {
                 .collect();
             let chunk_crc =
                 u32::from_be_bytes(source[8 + chunk_length as usize..].try_into().unwrap());
-
+            println!("{}", chunk_crc);
             if crc32fast::hash(&source[4..8 + chunk_length as usize]) != chunk_crc {
                 return Err("Invalid chunk CRC");
             }
@@ -96,7 +122,10 @@ impl Display for Chunk {
 
 impl Debug for Chunk {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", from_utf8(&self.chunk_data).unwrap())
+        match from_utf8(&self.chunk_data) {
+            Ok(fstr) => write!(f, "{}", fstr),
+            Err(_) => write!(f, "{:?}", &self.chunk_data)
+        }
     }
 }
 
